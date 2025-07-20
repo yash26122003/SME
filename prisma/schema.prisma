@@ -1,0 +1,476 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== User & Authentication Models ====================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  role            UserRole  @default(VIEWER)
+  tenantId        String
+  isActive        Boolean   @default(true)
+  emailVerified   Boolean   @default(false)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  preferences     UserPreferences?
+  dashboards      Dashboard[]
+  reports         Report[]
+  insightFeedback InsightFeedback[]
+  sessions        UserSession[]
+
+  @@map("users")
+  @@index([tenantId])
+  @@index([email])
+}
+
+model UserPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  theme             String   @default("light")
+  language          String   @default("en")
+  timezone          String   @default("UTC")
+  dashboardLayout   Json     @default("[]")
+  emailNotifications Boolean @default(true)
+  pushNotifications Boolean  @default(true)
+  insightNotifications Boolean @default(true)
+  reportNotifications Boolean @default(true)
+  alertNotifications Boolean @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserSession {
+  id           String    @id @default(cuid())
+  userId       String
+  token        String    @unique
+  refreshToken String    @unique
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+  @@index([userId])
+  @@index([token])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MANAGER
+  ANALYST
+  VIEWER
+}
+
+// ==================== Tenant & Subscription Models ====================
+
+model Tenant {
+  id            String       @id @default(cuid())
+  name          String
+  domain        String       @unique
+  industry      IndustryType @default(OTHER)
+  companySize   CompanySize  @default(SMALL)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  users         User[]
+  subscription  Subscription?
+  settings      TenantSettings?
+  metrics       BusinessMetric[]
+  insights      AIInsight[]
+  dashboards    Dashboard[]
+  reports       Report[]
+  dataSources   DataSource[]
+
+  @@map("tenants")
+  @@index([domain])
+  @@index([industry])
+}
+
+model TenantSettings {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  logo               String?
+  primaryColor       String   @default("#3B82F6")
+  secondaryColor     String   @default("#10B981")
+  aiInsights         Boolean  @default(true)
+  advancedAnalytics  Boolean  @default(false)
+  industryTemplates  Boolean  @default(true)
+  customReports      Boolean  @default(false)
+  dataRetentionDays  Int      @default(365)
+  maxUsers           Int      @default(5)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  tenantId              String             @unique
+  plan                  SubscriptionPlan   @default(STARTER)
+  status                SubscriptionStatus @default(TRIALING)
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean            @default(false)
+  trialEnd              DateTime?
+  aiQueriesUsed         Int                @default(0)
+  dataPointsUsed        Int                @default(0)
+  reportsUsed           Int                @default(0)
+  usersUsed             Int                @default(1)
+  storageUsed           Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  // Relations
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+enum IndustryType {
+  RETAIL
+  PROFESSIONAL_SERVICES
+  MANUFACTURING
+  HEALTHCARE
+  EDUCATION
+  HOSPITALITY
+  TECHNOLOGY
+  FINANCE
+  OTHER
+}
+
+enum CompanySize {
+  SMALL      // 1-10
+  MEDIUM     // 11-50
+  LARGE      // 51-250
+  XLARGE     // 251-1000
+  ENTERPRISE // 1000+
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+// ==================== Business Data Models ====================
+
+model BusinessMetric {
+  id            String         @id @default(cuid())
+  tenantId      String
+  name          String
+  value         Float
+  previousValue Float?
+  unit          String
+  category      MetricCategory
+  period        TimePeriod
+  timestamp     DateTime
+  confidence    Float?         // 0.0 - 1.0
+  dataSourceId  String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dataSource    DataSource     @relation(fields: [dataSourceId], references: [id])
+  insights      AIInsight[]    @relation("MetricInsights")
+
+  @@map("business_metrics")
+  @@index([tenantId, category])
+  @@index([tenantId, timestamp])
+  @@index([timestamp])
+}
+
+model DataSource {
+  id          String           @id @default(cuid())
+  tenantId    String
+  name        String
+  type        DataSourceType   @default(MANUAL)
+  isActive    Boolean          @default(true)
+  lastSyncAt  DateTime?
+  config      Json?            // Integration-specific configuration
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relations
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  metrics     BusinessMetric[]
+
+  @@map("data_sources")
+  @@index([tenantId])
+}
+
+enum MetricCategory {
+  REVENUE
+  EXPENSES
+  CUSTOMERS
+  INVENTORY
+  EMPLOYEES
+  OPERATIONS
+  MARKETING
+  SALES
+}
+
+enum TimePeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum DataSourceType {
+  MANUAL
+  INTEGRATION
+  UPLOAD
+  AI_GENERATED
+}
+
+// ==================== AI/ML Models ====================
+
+model AIInsight {
+  id               String           @id @default(cuid())
+  tenantId         String
+  type             InsightType
+  title            String
+  description      String           @db.Text
+  confidence       Float            // 0.0 - 1.0
+  impact           InsightImpact    @default(MEDIUM)
+  actionable       Boolean          @default(true)
+  recommendations  Json             @default("[]") // Array of strings
+  status           InsightStatus    @default(NEW)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relations
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  relatedMetrics   BusinessMetric[] @relation("MetricInsights")
+  feedback         InsightFeedback[]
+
+  @@map("ai_insights")
+  @@index([tenantId, type])
+  @@index([tenantId, status])
+  @@index([createdAt])
+}
+
+model InsightFeedback {
+  id          String    @id @default(cuid())
+  insightId   String
+  userId      String
+  helpful     Boolean
+  accurate    Boolean
+  comment     String?   @db.Text
+  submittedAt DateTime  @default(now())
+
+  // Relations
+  insight     AIInsight @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("insight_feedback")
+  @@unique([insightId, userId]) // One feedback per user per insight
+}
+
+enum InsightType {
+  TREND
+  ANOMALY
+  FORECAST
+  OPPORTUNITY
+  RISK
+  BENCHMARK
+}
+
+enum InsightImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum InsightStatus {
+  NEW
+  VIEWED
+  ACTED_ON
+  DISMISSED
+}
+
+// ==================== Dashboard & Visualization Models ====================
+
+model Dashboard {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  name        String
+  description String?   @db.Text
+  isDefault   Boolean   @default(false)
+  isPublic    Boolean   @default(false)
+  layout      Json      @default("{}")
+  tags        Json      @default("[]") // Array of strings
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widgets     Widget[]
+
+  @@map("dashboards")
+  @@index([tenantId, userId])
+  @@index([tenantId, isDefault])
+}
+
+model Widget {
+  id          String      @id @default(cuid())
+  dashboardId String
+  type        WidgetType
+  title       String
+  config      Json        @default("{}")
+  position    Json        @default("{}")
+  dataQuery   Json        @default("{}")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  dashboard   Dashboard   @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@map("widgets")
+  @@index([dashboardId])
+}
+
+enum WidgetType {
+  METRIC
+  CHART
+  TABLE
+  INSIGHT
+  KPI
+  FORECAST
+}
+
+// ==================== Report Models ====================
+
+model Report {
+  id               String        @id @default(cuid())
+  tenantId         String
+  userId           String
+  name             String
+  description      String?       @db.Text
+  templateId       String
+  schedule         Json?         // ReportSchedule object
+  recipients       Json          @default("[]") // Array of email strings
+  status           ReportStatus  @default(DRAFT)
+  lastGeneratedAt  DateTime?
+  nextScheduledAt  DateTime?
+  config           Json          @default("{}")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template         ReportTemplate @relation(fields: [templateId], references: [id])
+  executions       ReportExecution[]
+
+  @@map("reports")
+  @@index([tenantId, userId])
+  @@index([nextScheduledAt])
+}
+
+model ReportTemplate {
+  id          String       @id @default(cuid())
+  name        String
+  industry    IndustryType?
+  sections    Json         @default("[]") // Array of ReportSection objects
+  isDefault   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  reports     Report[]
+
+  @@map("report_templates")
+  @@index([industry])
+  @@index([isDefault])
+}
+
+model ReportExecution {
+  id          String       @id @default(cuid())
+  reportId    String
+  status      ReportStatus @default(GENERATING)
+  startedAt   DateTime     @default(now())
+  completedAt DateTime?
+  error       String?      @db.Text
+  fileUrl     String?
+  filePath    String?
+  fileSize    Int?
+
+  // Relations
+  report      Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_executions")
+  @@index([reportId])
+  @@index([startedAt])
+}
+
+enum ReportStatus {
+  DRAFT
+  SCHEDULED
+  GENERATING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+// ==================== System Models ====================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  action    String
+  resource  String
+  resourceId String?
+  details   Json?
+  ipAddress String?
+  userAgent String?  @db.Text
+  timestamp DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([tenantId, timestamp])
+  @@index([userId, timestamp])
+  @@index([timestamp])
+}
