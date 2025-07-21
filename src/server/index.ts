@@ -8,9 +8,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
-import { logger } from './config/logger.js';
-import queryRoutes from './routes/queryRoutes.js';
-import { generalRateLimit } from './middleware/rateLimit.js';
+import { logger } from './utils/logger';
+import queryRoutes from './routes/queryRoutes';
+// import realAnalyticsRoutes from './routes/realAnalytics';
+import { generalRateLimit } from './middleware/rateLimit';
 
 // Load environment variables
 dotenv.config();
@@ -47,6 +48,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/queries', queryRoutes);
+// app.use('/api/v1/real-analytics', realAnalyticsRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

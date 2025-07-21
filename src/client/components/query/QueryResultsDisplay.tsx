@@ -29,7 +29,7 @@ export const QueryResultsDisplay: React.FC<QueryResultsDisplayProps> = ({
       {/* Query Status */}
       <div className="mb-4">
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          query.status === 'COMPLETED' 
+          query.status === 'completed' 
             ? 'bg-green-100 text-green-800' 
             : 'bg-yellow-100 text-yellow-800'
         }`}>

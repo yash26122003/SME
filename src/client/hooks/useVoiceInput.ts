@@ -27,6 +27,7 @@ interface SpeechRecognitionEvent extends Event {
       };
       isFinal: boolean;
     };
+    length: number;
   };
   resultIndex: number;
 }

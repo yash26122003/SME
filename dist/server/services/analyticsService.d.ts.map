@@ -1,0 +1,1 @@
+{"version":3,"file":"analyticsService.d.ts","sourceRoot":"","sources":["../../../src/server/services/analyticsService.ts"],"names":[],"mappings":"AAEA,qBAAa,gBAAgB;IACrB,YAAY,CAAC,QAAQ,EAAE,MAAM,EAAE,SAAS,CAAC,EAAE;QAAE,KAAK,EAAE,IAAI,CAAC;QAAC,GAAG,EAAE,IAAI,CAAA;KAAE;;;;;;IAiBrE,mBAAmB,CAAC,QAAQ,EAAE,MAAM;;;;;;;IAepC,YAAY,CAAC,QAAQ,EAAE,MAAM;;;;;;;;CAkBpC"}

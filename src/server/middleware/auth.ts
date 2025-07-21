@@ -6,7 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { logger } from '../config/logger.js';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -31,8 +31,23 @@ declare global {
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Skip authentication for development
+    if (process.env.NODE_ENV === "development") {
+      req.user = {
+        id: 'dev-user',
+        email: 'dev@example.com',
+        tenantId: 'dev-tenant',
+        role: 'admin',
+        tenant: {
+          industry: 'General',
+          name: 'Dev Tenant'
+        }
+      };
+      return next();
+    }
+
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
@@ -122,3 +137,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     });
   }
 };
+
+// Export alias for backward compatibility
+export const authenticateToken = authMiddleware;

@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { logger } from '../config/logger.js';
+import { logger } from '../utils/logger';
 
 // Query request validation schema
 const queryRequestSchema = z.object({
@@ -80,9 +80,20 @@ export const validateRequest = (schema: z.ZodSchema) => {
   };
 };
 
+// Analytics request validation schema
+const analyticsRequestSchema = z.object({
+  dateRange: z.object({
+    start: z.string().datetime().optional(),
+    end: z.string().datetime().optional()
+  }).optional(),
+  metrics: z.array(z.string()).optional(),
+  granularity: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']).optional()
+});
+
 // Specific validation middleware
 export const validateQueryRequest = validateRequest(queryRequestSchema);
 export const validateFeedbackRequest = validateRequest(feedbackSchema);
+export const validateAnalyticsRequest = validateRequest(analyticsRequestSchema);
 
 // Query parameters validation
 export const validateQueryParams = (req: Request, res: Response, next: NextFunction) => {

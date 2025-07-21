@@ -6,7 +6,7 @@
     "lib": ["ES2020"],
     "noEmit": false,
     "outDir": "./dist",
-    "rootDir": "./src/server",
+    "rootDir": "./src",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
