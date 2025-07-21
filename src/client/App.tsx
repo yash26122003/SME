@@ -1,156 +1,224 @@
 /**
- * Main App Component
+ * Main App Component - With Query Interface
  * Root component for the AI-powered Business Intelligence Platform
  */
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { ReactQueryDevtools } from 'react-query/devtools';
-import NaturalLanguageQuery from './components/query/NaturalLanguageQuery';
+import React, { useState } from 'react';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
-// Create a client for React Query
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-});
-
 const App: React.FC = () => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    setResults(null);
+
+    try {
+      const response = await fetch('/api/queries/demo', { // Use demo endpoint
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query.trim()
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setResults(data.data.query);
+      } else {
+        setError(data.error || 'Failed to process query');
+      }
+    } catch (err) {
+      setError('Network error: Unable to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b border-gray-200">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center py-6">
-                  <div className="flex items-center">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                      Business AI Platform
-                    </h1>
-                    <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                      Beta
-                    </span>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl font-bold text-gray-900 mb-6">
+            Business AI Platform
+          </h1>
+          
+          {/* Welcome Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+              Ask Your Business Data Anything
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Get instant insights from your business data using natural language.
+            </p>
+          </div>
+
+          {/* Query Input Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="query" className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter your question:
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    id="query"
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="e.g., Show me this month's revenue trends"
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    disabled={loading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!query.trim() || loading}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {loading ? 'Processing...' : 'Ask'}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Sample queries */}
+              <div className="flex flex-wrap gap-2">
+                <span className="text-sm text-gray-500">Try:</span>
+                {[
+                  'Show sales trends',
+                  'Top performing products', 
+                  'Customer growth rate',
+                  'Revenue by region'
+                ].map((sample) => (
+                  <button
+                    key={sample}
+                    type="button"
+                    onClick={() => setQuery(sample)}
+                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  >
+                    {sample}
+                  </button>
+                ))}
+              </div>
+            </form>
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-blue-700">Processing your query...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg mb-6">
+              <div className="flex items-center space-x-2">
+                <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span className="text-red-700 font-medium">Error:</span>
+                <span className="text-red-600">{error}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Results Section */}
+          {results && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="border-b border-gray-200 pb-4 mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">{results.analysis?.title || 'Analysis Results'}</h3>
+                <p className="text-gray-600 mt-2">{results.analysis?.summary}</p>
+                <div className="mt-2 text-sm text-gray-500">
+                  Processed in {results.processingTime}ms • {results.timestamp && new Date(results.timestamp).toLocaleString()}
+                </div>
+              </div>
+
+              {/* Key Insights */}
+              {results.analysis?.insights && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">📊 Key Insights</h4>
+                  <div className="grid gap-3">
+                    {results.analysis.insights.map((insight: string, index: number) => (
+                      <div key={index} className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                        <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-blue-600 text-sm font-medium">{index + 1}</span>
+                        </div>
+                        <p className="text-gray-700">{insight}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm text-gray-600">
-                      Powered by Gemini 2.0 Flash
+                </div>
+              )}
+
+              {/* Data Table */}
+              {results.analysis?.data && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">📈 Data Overview</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {Object.keys(results.analysis.data[0] || {}).map((key) => (
+                            <th key={key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {key.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, str => str.toUpperCase())}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {results.analysis.data.slice(0, 6).map((row: any, index: number) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            {Object.entries(row).map(([key, value]: [string, any]) => (
+                              <td key={key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {typeof value === 'number' && key.includes('revenue') || key.includes('value') ? 
+                                  `$${value.toLocaleString()}` : 
+                                  typeof value === 'number' && (key.includes('growth') || key.includes('change')) ? 
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    value > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {value > 0 ? '↗' : '↘'} {Math.abs(value)}%
+                                  </span> :
+                                  typeof value === 'number' ? value.toLocaleString() : value
+                                }
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Chart Type Indicator */}
+              {results.analysis?.chartType && (
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-600">📊 Recommended visualization:</span>
+                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                      {results.analysis.chartType.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                 </div>
-              </div>
-            </header>
-
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </main>
-          </div>
-        </Router>
-        
-        {/* React Query DevTools (only in development) */}
-        {process.env.NODE_ENV === 'development' && (
-          <ReactQueryDevtools initialIsOpen={false} />
-        )}
-      </QueryClientProvider>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </ErrorBoundary>
-  );
-};
-
-// Home Page Component
-const HomePage: React.FC = () => {
-  return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="text-center">
-        <h2 className="text-4xl font-bold text-gray-900 mb-4">
-          Ask Your Business Data Anything
-        </h2>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Get instant insights from your business data using natural language. 
-          Simply ask questions in plain English and get AI-powered answers with visualizations.
-        </p>
-      </div>
-
-      {/* Query Interface */}
-      <div className="bg-white rounded-2xl shadow-lg p-8">
-        <NaturalLanguageQuery
-          placeholder="Ask me anything about your business data..."
-          showHistory={true}
-          showVoiceInput={true}
-          onQuerySubmit={(query) => {
-            console.log('Query submitted:', query);
-          }}
-          onResultsReceived={(results) => {
-            console.log('Results received:', results);
-          }}
-        />
-      </div>
-
-      {/* Feature Highlights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Natural Language Queries</h3>
-          <p className="text-gray-600">Ask questions in plain English and get instant insights from your business data.</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Voice Input</h3>
-          <p className="text-gray-600">Use voice commands to query your data hands-free with advanced speech recognition.</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Smart Visualizations</h3>
-          <p className="text-gray-600">Automatically generate the best charts and graphs to visualize your data insights.</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Dashboard Page Component
-const DashboardPage: React.FC = () => {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-      <p className="text-gray-600">Dashboard content will be implemented here.</p>
-    </div>
-  );
-};
-
-// 404 Not Found Page
-const NotFoundPage: React.FC = () => {
-  return (
-    <div className="text-center">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">Page Not Found</h2>
-      <p className="text-gray-600">The page you're looking for doesn't exist.</p>
-    </div>
   );
 };
 

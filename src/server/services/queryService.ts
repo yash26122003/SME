@@ -12,10 +12,12 @@ import {
   QueryTemplate,
   VisualizationType,
   InsightType,
-  InsightSignificance
-} from '@shared/types/query';
-import { PaginationParams } from '@shared/types';
-import { logger } from '../config/logger.js';
+  InsightSignificance,
+  SuggestionCategory,
+  VariableType
+} from '../../shared/types/query';
+import { PaginationParams } from '../../shared/types';
+import { logger } from '../utils/logger';
 
 export class QueryService {
   private prisma: PrismaClient;
@@ -82,7 +84,7 @@ export class QueryService {
       return [result];
     } catch (error) {
       logger.error('Error executing query:', error);
-      throw new Error(`Query execution failed: ${error.message}`);
+      throw new Error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -99,7 +101,7 @@ export class QueryService {
       // await this.prisma.query.create({ data: query });
     } catch (error) {
       logger.error('Error saving query:', error);
-      throw new Error(`Failed to save query: ${error.message}`);
+      throw new Error(`Failed to save query: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -159,7 +161,7 @@ export class QueryService {
       };
     } catch (error) {
       logger.error('Error fetching query history:', error);
-      throw new Error(`Failed to fetch query history: ${error.message}`);
+      throw new Error(`Failed to fetch query history: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -172,7 +174,7 @@ export class QueryService {
       // Mock implementation - would update database
     } catch (error) {
       logger.error('Error toggling favorite:', error);
-      throw new Error(`Failed to toggle favorite: ${error.message}`);
+      throw new Error(`Failed to toggle favorite: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -187,12 +189,12 @@ export class QueryService {
           id: 'template_1',
           name: 'Sales Performance Analysis',
           template: 'Show me {metric} performance for {time_period} by {dimension}',
-          category: 'TEMPLATE',
+          category: SuggestionCategory.TEMPLATE,
           industry: industry as any,
           variables: [
             {
               name: 'metric',
-              type: 'ENUM',
+              type: VariableType.ENUM,
               required: true,
               options: [
                 { value: 'sales', label: 'Sales' },
@@ -202,7 +204,7 @@ export class QueryService {
             },
             {
               name: 'time_period',
-              type: 'ENUM',
+              type: VariableType.ENUM,
               required: true,
               options: [
                 { value: 'last month', label: 'Last Month' },
@@ -212,7 +214,7 @@ export class QueryService {
             },
             {
               name: 'dimension',
-              type: 'ENUM',
+              type: VariableType.ENUM,
               required: false,
               defaultValue: 'product',
               options: [
@@ -232,12 +234,12 @@ export class QueryService {
           id: 'template_2',
           name: 'Customer Analysis',
           template: 'What is our {metric} for {segment} customers in {time_period}?',
-          category: 'TEMPLATE',
+          category: SuggestionCategory.TEMPLATE,
           industry: industry as any,
           variables: [
             {
               name: 'metric',
-              type: 'ENUM',
+              type: VariableType.ENUM,
               required: true,
               options: [
                 { value: 'acquisition cost', label: 'Acquisition Cost' },
@@ -247,7 +249,7 @@ export class QueryService {
             },
             {
               name: 'segment',
-              type: 'ENUM',
+              type: VariableType.ENUM,
               required: false,
               defaultValue: 'new',
               options: [
@@ -258,7 +260,7 @@ export class QueryService {
             },
             {
               name: 'time_period',
-              type: 'ENUM',
+              type: VariableType.ENUM,
               required: true,
               options: [
                 { value: 'this month', label: 'This Month' },
@@ -278,7 +280,7 @@ export class QueryService {
       return templates;
     } catch (error) {
       logger.error('Error fetching query templates:', error);
-      throw new Error(`Failed to fetch query templates: ${error.message}`);
+      throw new Error(`Failed to fetch query templates: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -295,7 +297,7 @@ export class QueryService {
       // Mock implementation - would save feedback to database
     } catch (error) {
       logger.error('Error submitting feedback:', error);
-      throw new Error(`Failed to submit feedback: ${error.message}`);
+      throw new Error(`Failed to submit feedback: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

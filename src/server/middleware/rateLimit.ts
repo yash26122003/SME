@@ -5,7 +5,7 @@
 
 import rateLimit from 'express-rate-limit';
 import { Request, Response } from 'express';
-import { logger } from '../config/logger.js';
+import { logger } from '../utils/logger';
 
 interface RateLimitOptions {
   windowMs?: number;
@@ -42,7 +42,7 @@ export const rateLimitMiddleware = (options: RateLimitOptions = {}) => {
       if (req.user?.id) {
         return `user:${req.user.id}`;
       }
-      return req.ip;
+      return req.ip || 'anonymous';
     },
     handler: (req: Request, res: Response) => {
       const identifier = req.user?.id ? `user:${req.user.id}` : req.ip;

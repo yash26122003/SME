@@ -190,7 +190,7 @@ export interface SpeechRecognitionConfig {
   continuous: boolean;
   interimResults: boolean;
   maxAlternatives: number;
-  grammars?: SpeechGrammar[];
+  grammars?: any[];
 }
 
 // ==================== Query Suggestions Types ====================

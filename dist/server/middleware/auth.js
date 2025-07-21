@@ -1,0 +1,101 @@
+"use strict";
+/**
+ * Authentication Middleware
+ * Validates JWT tokens and sets user context for protected routes
+ */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.authenticateToken = exports.authMiddleware = void 0;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const client_1 = require("@prisma/client");
+const logger_js_1 = require("../config/logger.js");
+const prisma = new client_1.PrismaClient();
+const authMiddleware = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                success: false,
+                error: 'Authentication required',
+                message: 'Please provide a valid access token'
+            });
+        }
+        const token = authHeader.substring(7);
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            logger_js_1.logger.error('JWT_SECRET environment variable not set');
+            return res.status(500).json({
+                success: false,
+                error: 'Server configuration error'
+            });
+        }
+        // Verify JWT token
+        const decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
+        if (!decoded || !decoded.userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid token',
+                message: 'The provided token is invalid or expired'
+            });
+        }
+        // Fetch user from database
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            include: {
+                tenant: {
+                    select: {
+                        industry: true,
+                        name: true
+                    }
+                }
+            }
+        });
+        if (!user || !user.isActive) {
+            return res.status(401).json({
+                success: false,
+                error: 'User not found or inactive',
+                message: 'Your account is not active or has been disabled'
+            });
+        }
+        // Set user context
+        req.user = {
+            id: user.id,
+            email: user.email,
+            tenantId: user.tenantId,
+            role: user.role,
+            tenant: user.tenant ? {
+                industry: user.tenant.industry,
+                name: user.tenant.name
+            } : undefined
+        };
+        next();
+    }
+    catch (error) {
+        if (error instanceof jsonwebtoken_1.default.TokenExpiredError) {
+            return res.status(401).json({
+                success: false,
+                error: 'Token expired',
+                message: 'Your session has expired. Please log in again.'
+            });
+        }
+        if (error instanceof jsonwebtoken_1.default.JsonWebTokenError) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid token',
+                message: 'The provided token is invalid'
+            });
+        }
+        logger_js_1.logger.error('Authentication middleware error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Authentication error',
+            message: 'An error occurred during authentication'
+        });
+    }
+};
+exports.authMiddleware = authMiddleware;
+// Export alias for backward compatibility
+exports.authenticateToken = exports.authMiddleware;
+//# sourceMappingURL=auth.js.map

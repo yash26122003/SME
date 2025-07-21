@@ -4,12 +4,12 @@
  */
 
 import { Router } from 'express';
-import { nlQueryProcessor } from '../services/nlQueryProcessor.js';
-import { QueryService } from '../services/queryService.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { rateLimitMiddleware } from '../middleware/rateLimit.js';
-import { validateQueryRequest } from '../middleware/validation.js';
-import { APIResponse } from '@shared/types';
+import { nlQueryProcessor } from '../services/nlQueryProcessor';
+import { QueryService } from '../services/queryService';
+import { authMiddleware } from '../middleware/auth';
+import { rateLimitMiddleware } from '../middleware/rateLimit';
+import { validateQueryRequest } from '../middleware/validation';
+import { APIResponse } from '../../shared/types';
 import {
   NLQuery,
   QueryStatus,
@@ -17,9 +17,10 @@ import {
   QueryResult,
   AutoCompleteResult,
   QueryHistory,
-  QuerySuggestion
-} from '@shared/types/query';
-import { logger } from '../config/logger.js';
+  QuerySuggestion,
+  SuggestionCategory
+} from '../../shared/types/query';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -34,6 +35,152 @@ router.use('/process', rateLimitMiddleware({
 }));
 
 /**
+ * POST /api/queries/demo
+ * Demo endpoint with mock analytics responses
+ */
+router.post('/demo', async (req, res) => {
+  try {
+    const { query } = req.body;
+    const startTime = Date.now();
+
+    // Generate mock analytics response based on query keywords
+    const lowerQuery = query.toLowerCase();
+    let mockResponse;
+
+    if (lowerQuery.includes('sales') || lowerQuery.includes('revenue')) {
+      mockResponse = {
+        analysis: {
+          title: "Sales & Revenue Analysis",
+          summary: "Sales performance shows strong growth with Q4 leading at 35% increase YoY.",
+          insights: [
+            "Monthly revenue increased by 23% compared to last year",
+            "Top performing product categories: Electronics (40%), Clothing (28%), Home & Garden (22%)",
+            "Peak sales periods: December, June, and September"
+          ],
+          data: [
+            { month: "Jan", revenue: 45000, growth: 15 },
+            { month: "Feb", revenue: 52000, growth: 18 },
+            { month: "Mar", revenue: 48000, growth: 12 },
+            { month: "Apr", revenue: 61000, growth: 27 },
+            { month: "May", revenue: 58000, growth: 22 },
+            { month: "Jun", revenue: 71000, growth: 35 }
+          ],
+          chartType: "line_chart"
+        }
+      };
+    } else if (lowerQuery.includes('customer') || lowerQuery.includes('user')) {
+      mockResponse = {
+        analysis: {
+          title: "Customer Analytics",
+          summary: "Customer base growing steadily with improved retention rates and engagement.",
+          insights: [
+            "Customer retention rate improved to 87% (up 12% from last quarter)",
+            "New customer acquisition increased by 31%",
+            "Average customer lifetime value: $2,847",
+            "Most engaged demographics: 25-34 age group (42% of interactions)"
+          ],
+          data: [
+            { segment: "New Customers", count: 1247, percentage: 31 },
+            { segment: "Returning Customers", count: 3891, percentage: 69 },
+            { segment: "Premium Customers", count: 876, percentage: 22 },
+            { segment: "At Risk", count: 234, percentage: 6 }
+          ],
+          chartType: "donut_chart"
+        }
+      };
+    } else if (lowerQuery.includes('product') || lowerQuery.includes('inventory')) {
+      mockResponse = {
+        analysis: {
+          title: "Product Performance Analysis",
+          summary: "Product portfolio showing strong performance in key categories with inventory optimization opportunities.",
+          insights: [
+            "Top 5 products account for 67% of total revenue",
+            "Inventory turnover rate: 8.2x annually",
+            "23 products showing declining trends - recommend discontinuation",
+            "New product launches generated $187K in revenue"
+          ],
+          data: [
+            { product: "Wireless Headphones", sales: 1847, revenue: 129890 },
+            { product: "Smartphone Case", sales: 2156, revenue: 64680 },
+            { product: "Laptop Stand", sales: 987, revenue: 78960 },
+            { product: "USB Cable", sales: 3421, revenue: 47894 },
+            { product: "Power Bank", sales: 1654, revenue: 82700 }
+          ],
+          chartType: "bar_chart"
+        }
+      };
+    } else if (lowerQuery.includes('trend') || lowerQuery.includes('forecast')) {
+      mockResponse = {
+        analysis: {
+          title: "Business Trends & Forecasting",
+          summary: "Current trends indicate sustained growth with seasonal patterns emerging.",
+          insights: [
+            "Revenue growth trend: +18% quarterly average",
+            "Seasonal peak expected in Q4 (November-December)",
+            "Customer acquisition cost decreased by 24%",
+            "Projected annual growth: 22-27% based on current trajectory"
+          ],
+          data: [
+            { period: "Q1 2024", actual: 234000, forecast: 231000, growth: 18 },
+            { period: "Q2 2024", actual: 267000, forecast: 265000, growth: 22 },
+            { period: "Q3 2024", actual: null, forecast: 298000, growth: 25 },
+            { period: "Q4 2024", actual: null, forecast: 334000, growth: 27 }
+          ],
+          chartType: "forecast_chart"
+        }
+      };
+    } else {
+      // Generic business overview
+      mockResponse = {
+        analysis: {
+          title: "Business Overview Dashboard",
+          summary: "Comprehensive business performance metrics showing positive trends across key indicators.",
+          insights: [
+            "Overall business health score: 8.4/10 (Excellent)",
+            "Revenue growth: +23% YoY",
+            "Customer satisfaction: 94% (up 7% from last quarter)",
+            "Market share expansion: +5.2% in target demographics"
+          ],
+          data: [
+            { metric: "Revenue", value: 987654, change: 23, status: "positive" },
+            { metric: "Customers", value: 5847, change: 31, status: "positive" },
+            { metric: "Orders", value: 12934, change: 18, status: "positive" },
+            { metric: "Avg Order Value", value: 127.50, change: -3, status: "negative" }
+          ],
+          chartType: "dashboard"
+        }
+      };
+    }
+
+    const processingTime = Date.now() - startTime;
+
+    const demoQuery = {
+      id: `demo_${Date.now()}`,
+      query,
+      ...mockResponse,
+      processingTime,
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({
+      success: true,
+      data: {
+        query: demoQuery,
+        executionTime: processingTime
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error processing demo query:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process demo query',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
  * POST /api/queries/process
  * Process natural language query and return structured results
  */
@@ -43,19 +190,27 @@ router.post('/process', validateQueryRequest, async (req, res) => {
     const userId = req.user?.id;
     const tenantId = req.user?.tenantId;
 
+    if (!userId || !tenantId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        message: 'User ID and tenant ID are required'
+      } as APIResponse);
+    }
+
     logger.info(`Processing query: "${query}" for user ${userId}`);
 
     // Create query context
     const queryContext = {
       tenantId,
       userId,
-      industry: context?.industry || req.user?.tenant?.industry,
+      industry: context?.industry || (req.user?.tenant?.industry as any),
       availableMetrics: context?.availableMetrics || [],
       previousQueries: context?.previousQueries || [],
       userPreferences: context?.userPreferences || {
-        defaultTimeframe: 'RELATIVE',
-        preferredVisualization: 'LINE_CHART',
-        detailLevel: 'MEDIUM',
+        defaultTimeframe: 'relative' as any,
+        preferredVisualization: 'line_chart' as any,
+        detailLevel: 'medium' as any,
         includeInsights: true,
         includeRecommendations: true,
         language: 'en'
@@ -153,6 +308,14 @@ router.get('/suggestions', async (req, res) => {
     const userId = req.user?.id;
     const tenantId = req.user?.tenantId;
 
+    if (!userId || !tenantId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        message: 'User ID and tenant ID are required'
+      } as APIResponse);
+    }
+
     if (!partialQuery) {
       return res.status(400).json({
         success: false,
@@ -163,13 +326,13 @@ router.get('/suggestions', async (req, res) => {
     const queryContext = {
       tenantId,
       userId,
-      industry: req.user?.tenant?.industry || 'OTHER',
+      industry: (req.user?.tenant?.industry as any) || 'OTHER',
       availableMetrics: [], // Would be populated from database
       previousQueries: [],
       userPreferences: {
-        defaultTimeframe: 'RELATIVE',
-        preferredVisualization: 'LINE_CHART',
-        detailLevel: 'MEDIUM',
+        defaultTimeframe: 'relative' as any,
+        preferredVisualization: 'line_chart' as any,
+        detailLevel: 'medium' as any,
         includeInsights: true,
         includeRecommendations: true,
         language: 'en'
@@ -191,7 +354,7 @@ router.get('/suggestions', async (req, res) => {
       suggestions: suggestions.slice(0, Number(limit)).map((text, index) => ({
         id: `suggestion_${index}`,
         text,
-        category: 'RECOMMENDED',
+        category: SuggestionCategory.RECOMMENDED,
         popularity: 0.8,
         relevance: 0.9,
         examples: [],
@@ -226,6 +389,14 @@ router.get('/history', async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const userId = req.user?.id;
     const tenantId = req.user?.tenantId;
+
+    if (!userId || !tenantId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        message: 'User ID and tenant ID are required'
+      } as APIResponse);
+    }
 
     const queryService = new QueryService();
     const history = await queryService.getQueryHistory(
@@ -265,6 +436,14 @@ router.post('/:id/favorite', async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        message: 'User ID is required'
+      } as APIResponse);
+    }
 
     const queryService = new QueryService();
     await queryService.toggleFavorite(id, userId);
@@ -318,6 +497,14 @@ router.post('/:id/feedback', async (req, res) => {
     const { id } = req.params;
     const { helpful, accurate, comment } = req.body;
     const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        message: 'User ID is required'
+      } as APIResponse);
+    }
 
     const queryService = new QueryService();
     await queryService.submitQueryFeedback(id, userId, {

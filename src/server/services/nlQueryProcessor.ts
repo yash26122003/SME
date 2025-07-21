@@ -22,10 +22,14 @@ import {
   FilterOperator,
   QueryFilter,
   QueryOrder
-} from '@shared/types/query';
+} from '../../shared/types/query';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { logger } from '../config/logger.js';
-import { BusinessMetric } from '@shared/types';
+import { logger } from '../utils/logger';
+import { BusinessMetric } from '../../shared/types';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 /**
  * Advanced Natural Language Query Processor
@@ -38,7 +42,10 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY environment variable is required');
+      console.warn('GEMINI_API_KEY not found. AI features will use mock responses.');
+      this.genAI = null as any;
+      this.model = null as any;
+      return;
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
@@ -92,6 +99,11 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
    * Processes complete query and returns structured format
    */
   async processQuery(query: string, context: QueryContext): Promise<ProcessedQuery> {
+    // Return mock response if API key is not available
+    if (!this.model) {
+      return this.createFallbackProcessedQuery(query);
+    }
+    
     const prompt = this.buildQueryProcessingPrompt(query, context);
     
     try {
@@ -102,7 +114,7 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
       return this.parseProcessedQueryResponse(text, query, context);
     } catch (error) {
       logger.error('Error processing query:', error);
-      throw new Error(`Failed to process query: ${error.message}`);
+      throw new Error(`Failed to process query: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -110,6 +122,11 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
    * Generates SQL query from processed natural language query
    */
   async generateSQL(processedQuery: ProcessedQuery, context: QueryContext): Promise<string> {
+    // Return mock SQL if API key is not available
+    if (!this.model) {
+      return this.getMockSQL(context);
+    }
+    
     const prompt = this.buildSQLGenerationPrompt(processedQuery, context);
     
     try {
@@ -131,7 +148,7 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
       return sql;
     } catch (error) {
       logger.error('Error generating SQL:', error);
-      throw new Error(`Failed to generate SQL: ${error.message}`);
+      throw new Error(`Failed to generate SQL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -231,9 +248,9 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
       // Parse suggestions from response
       const suggestions = text
         .split('\n')
-        .filter(line => line.trim().startsWith('-') || line.trim().match(/^\d+\.)/))
-        .map(line => line.replace(/^[-\d\.\s]+/, '').trim())
-        .filter(suggestion => suggestion.length > 0)
+        .filter((line: string) => line.trim().startsWith('-') || line.trim().match(/^\d+\./))
+        .map((line: string) => line.replace(/^[-\d\.\s]+/, '').trim())
+        .filter((suggestion: string) => suggestion.length > 0)
         .slice(0, 10); // Limit to 10 suggestions
       
       return suggestions;
@@ -336,7 +353,7 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
       - Optimize for performance
       - Handle NULL values appropriately
       
-      Provide only the SQL query wrapped in ```sql``` blocks.
+      Provide only the SQL query wrapped in triple backticks with sql language identifier.
     `;
   }
 
@@ -503,6 +520,19 @@ export class NaturalLanguageQueryProcessor implements AIQueryProcessor {
     if (query.includes('group by')) return 50;
     
     return 500; // Default estimate
+  }
+
+  private getMockSQL(context: QueryContext): string {
+    return `SELECT 
+      DATE_TRUNC('month', created_at) as period,
+      SUM(amount) as total_revenue,
+      COUNT(*) as total_orders
+    FROM orders 
+    WHERE tenant_id = '${context.tenantId}'
+      AND created_at >= NOW() - INTERVAL '30 days'
+    GROUP BY DATE_TRUNC('month', created_at)
+    ORDER BY period DESC
+    LIMIT 100;`;
   }
 
   private getFallbackSuggestions(industry: string): string[] {
